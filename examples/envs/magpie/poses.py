@@ -5,8 +5,8 @@ from numpy import sqrt
 
 from splines.quaternion import Quaternion
 
-import magpie.utils
-from magpie.utils import skew_sym, vec_unit
+import envs.magpie.utils
+from envs.magpie.utils import skew_sym, vec_unit
 
 
 

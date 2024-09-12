@@ -1,26 +1,36 @@
-from magpie.ur5 import UR5_Interface as ur5
+from envs.magpie.ur5 import UR5_Interface as ur5
 import time
 
 import gym
 import numpy as np
 from pyquaternion import Quaternion
-from magpie import realsense_wrapper as real
+from envs.magpie import realsense_wrapper as real
 
 def step_action(robot, action, blocking=True):
     #TODO: do something with robot
-    robot.close_gripper()
+    robot.moveJ(pose = action[:7], rotSpeed=0.1, asynch = not blocking)
+    robot.set_gripper(0.02)
 
-def get_observation(robot):
+def get_observation(robot, cam):
     #TODO: get the observation
-    robot.open_gripper()
+    
+    return (robot.get_joing_angles()).append(robot.get_gripper_sep()), cam.takeImages(path = "", save=False)
     
 def null_obs(im_size):
     #TODO: implement
-    return None
+    return {
+        "image_wrist": np.zeros((im_size, im_size, 3), dtype=np.uint8),
+        "proprio": np.zeros((8,), dtype=np.float64)
+    }
 
-def convert_obs(obs, im_size):
+def convert_obs(obs_im, obs_pose, im_size):
+    im = (obs_im.reshape(3, im_size, im_size).transpose(1,2,0) * 255).astype(np.uint8)
+
     #TODO: implement
-    return None
+    return {
+        "image_wrist": im, 
+        "proprio": obs_pose
+    }
 
 def reset(robot, blocking=True):
     #TODO:
@@ -32,11 +42,13 @@ class UR5Gym(gym.Env):
     def __init__(
             self,
             ur5_client: ur5,
+            cam: real.RealSense,
             im_size: int = 256,
             blocking: bool = True,
             sticky_gripper_num_steps: int = 1,
     ):
         self.ur5_client = ur5_client
+        self.cam = cam
         self.im_size = im_size
         self.blocking = blocking
         self.observation_space = gym.spaces.Dict(
@@ -71,15 +83,15 @@ class UR5Gym(gym.Env):
         action[-1] = 0.2 if self.is_gripper_closed else 1.0
         step_action(self.ur5_client, action, blocking=self.blocking)
 
-        raw_obs = get_observation(self.ur5_client)
+        raw_pose, raw_image = get_observation(self.ur5_client)
 
         truncated = False
-        if raw_obs is None:
+        if raw_pose is None or raw_image is None:
             # loss of conection
             truncated = True
             obs = null_obs(self.im_size())
         else:
-            obs = convert_obs(raw_obs, self.im_size)
+            obs = convert_obs(raw_image, raw_pose, self.im_size)
 
         return obs, 0, False, truncated, {}
     
@@ -94,3 +106,4 @@ class UR5Gym(gym.Env):
         obs = convert_obs(raw_obs, self.im_size)
 
         return obs, {}
+        

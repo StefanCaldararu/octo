@@ -15,6 +15,10 @@ from octo.model.octo_model import OctoModel
 from octo.utils.gym_wrappers import HistoryWrapper, TemporalEnsembleWrapper
 from octo.utils.train_callbacks import supply_rng
 
+from envs.magpie.ur5 import UR5_Interface as ur5
+from envs.magpie import realsense_wrapper as real
+from envs.ur5_env import UR5Gym
+
 
 logging.set_verbosity(logging.WARNING)
 
@@ -47,7 +51,7 @@ flags.DEFINE_bool("show_image", False, "Show image")
 
 STEP_DURATION = 0.2
 STICKY_GRIPPER_NUM_STEPS = 1
-# WORKSPACE_BOUNDS = [[0.1, -0.15, -0.01, -1.57, 0], [0.45, 0.25, 0.25, 1.57, 0]] # TODO: Set workspace bounds
+WORKSPACE_BOUNDS = [[0.574, -1.511, 1.083, -1.982, -1.661, -1.824, 0], [1.22, -1.075, 1.81, -1.359, -1.604, 1.283, 0]] # TODO: Set workspace bounds
 CAMERA_TOPICS = [{"name": "/blue/image_raw"}]
 ENV_PARAMS = {
     "camera_topics": CAMERA_TOPICS,
@@ -62,6 +66,16 @@ def main(_):
         FLAGS.checkpoint_step,
     )
 
+    #initialize cam and robot
+    robot = ur5()
+    rsc = real.RealSense()
+    rsc.initConnection()
+
+    #wrap the robot environment
+    env = UR5Gym(robot, rsc)
+    env = HistoryWrapper(env, FLAGS.window_size)
+    env = TemporalEnsembleWrapper(env, FLAGS.action_horizon)
+
     def sample_actions(
             pretrained_model: OctoModel,
             observations,
@@ -74,9 +88,6 @@ def main(_):
             observations,
             tasks,
             rng=rng,
-            unnormalization_statistics=pretrained_model.dataset_statistics[
-                "bridge_dataset"
-            ]["action"],
         )
         # remove batch dim
         return actions[0]
@@ -103,6 +114,7 @@ def main(_):
     images = []
     goals = []
     t = 0
+    env.reset()
     while t < FLAGS.num_timesteps:
         if time.time() > last_tstep + STEP_DURATION:
             last_tstep = time.time()
@@ -112,6 +124,6 @@ def main(_):
             # get action
             forward_pass_time = time.time()
             action = np.array(policy_fn(obs, task), dtype = np.float64)
-            
+            print(action)
             # perform the step
             
