@@ -14,7 +14,7 @@ def step_action(robot, action, blocking=True):
 def get_observation(robot, cam):
     #TODO: get the observation
     
-    return (robot.get_joing_angles()).append(robot.get_gripper_sep()), cam.takeImages(path = "", save=False)
+    return np.append(robot.get_joint_angles(), robot.get_gripper_sep()), cam.takeImages(path = "", save=False)
     
 def null_obs(im_size):
     #TODO: implement
@@ -24,7 +24,7 @@ def null_obs(im_size):
     }
 
 def convert_obs(obs_im, obs_pose, im_size):
-    im = (obs_im.reshape(3, im_size, im_size).transpose(1,2,0) * 255).astype(np.uint8)
+    im = (np.asarray(obs_im.color).reshape(3, im_size, im_size).transpose(1,2,0) * 255).astype(np.uint8)
 
     #TODO: implement
     return {
@@ -34,7 +34,7 @@ def convert_obs(obs_im, obs_pose, im_size):
 
 def reset(robot, blocking=True):
     #TODO:
-    robot.moveJ(pose = [0.643, -1.7, 1.667, -1.712, -1.47, -1.047], rotSpeed=0.1, asynch=not blocking)
+    robot.moveJ([0.643, -1.7, 1.667, -1.712, -1.47, -1.047], rotSpeed=0.1, asynch=not blocking)
     robot.open_gripper()
 
 class UR5Gym(gym.Env):
@@ -58,7 +58,7 @@ class UR5Gym(gym.Env):
                     high=255*np.ones((im_size, im_size, 3)),
                     dtype = np.uint8,
                 ),
-                "proprio": gym.space.Box(
+                "proprio": gym.spaces.Box(
                     low=np.ones((8,))*-1, high = np.ones((8,)), dtype=np.float64
                 ),
             }
@@ -83,7 +83,7 @@ class UR5Gym(gym.Env):
         action[-1] = 0.2 if self.is_gripper_closed else 1.0
         step_action(self.ur5_client, action, blocking=self.blocking)
 
-        raw_pose, raw_image = get_observation(self.ur5_client)
+        raw_pose, raw_image = get_observation(self.ur5_client, self.cam)
 
         truncated = False
         if raw_pose is None or raw_image is None:
@@ -102,8 +102,8 @@ class UR5Gym(gym.Env):
         self.is_gripper_closed = False
         self.num_consecutive_gripper_change_actions = 0
 
-        raw_obs = get_observation(self.ur5_client)
-        obs = convert_obs(raw_obs, self.im_size)
+        raw_pose, raw_image = get_observation(self.ur5_client, self.cam)
+        obs = convert_obs(raw_image, raw_pose, self.im_size)
 
         return obs, {}
         

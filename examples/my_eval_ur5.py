@@ -20,14 +20,9 @@ from envs.magpie import realsense_wrapper as real
 from envs.ur5_env import UR5Gym
 
 
-logging.set_verbosity(logging.WARNING)
+logging.set_verbosity(logging.DEBUG)
 
 FLAGS = flags.FLAGS
-
-flags.DEFINE_string(
-    "checkpoint_weights_path", None, "Path to checkpoint", required=True
-)
-flags.DEFINE_integer("checkpoint_step", None, "Checkpoint step", required=True)
 
 # custom to bridge_data_robot
 flags.DEFINE_string("ip", "localhost", "IP address of the robot")
@@ -45,7 +40,6 @@ flags.DEFINE_integer(
     "action_horizon", 4, "Length of action sequence to execute/ensemble"
 )
 
-
 # show image flag
 flags.DEFINE_bool("show_image", False, "Show image")
 
@@ -61,18 +55,17 @@ ENV_PARAMS = {
 
 def main(_):
     # load models
-    model = OctoModel.load_pretrained(
-        FLAGS.checkpoint_weights_path,
-        FLAGS.checkpoint_step,
-    )
+    model = OctoModel.load_pretrained("hf://rail-berkeley/octo-small-1.5")
 
     #initialize cam and robot
     robot = ur5()
+    robot.start()
+    # robot.moveJ([0.643, -1.7, 1.667, -1.712, -1.47, -1.047], rotSpeed=0.1, asynch=False)
     rsc = real.RealSense()
     rsc.initConnection()
 
     #wrap the robot environment
-    env = UR5Gym(robot, rsc)
+    env = UR5Gym(robot, rsc, FLAGS.im_size)
     env = HistoryWrapper(env, FLAGS.window_size)
     env = TemporalEnsembleWrapper(env, FLAGS.action_horizon)
 
@@ -96,29 +89,27 @@ def main(_):
         partial(
             sample_actions,
             model,
-            argmax=FLAGS.deterministic,
-            temperature=FLAGS.temperature,
         )
     )
 
     goal_image = jnp.zeros((FLAGS.im_size, FLAGS.im_size, 3), dtype=np.uint8)
     goal_instruction = "Pick up the blue block."
-
     task = model.create_tasks(texts=[goal_instruction])
     #TODO: actually get observations
-    obs = np.array([])
-
+    # obs = np.array([])
+    print(goal_instruction)
     time.sleep(2.0)
 
     last_tstep = time.time()
     images = []
     goals = []
     t = 0
-    env.reset()
+    obs, something = env.reset()
     while t < FLAGS.num_timesteps:
         if time.time() > last_tstep + STEP_DURATION:
             last_tstep = time.time()
-            images.append(obs["image_primary"][-1])
+            print(type(obs["image_wrist"]))
+            images.append(obs["image_wrist"][-1])
             goals.append(goal_image)
             
             # get action
@@ -126,4 +117,8 @@ def main(_):
             action = np.array(policy_fn(obs, task), dtype = np.float64)
             print(action)
             # perform the step
+            obs = env.step(action)
+    robot.stop()
             
+if __name__ == "__main__":
+    app.run(main)
