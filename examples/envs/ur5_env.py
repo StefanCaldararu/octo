@@ -1,35 +1,57 @@
 from envs.magpie.ur5 import UR5_Interface as ur5
+from envs.magpie.ur5 import pose_vector_to_homog_coord
+from envs.magpie.ur5 import homog_coord_to_pose_vector
 import time
 
 import gym
 import numpy as np
 from pyquaternion import Quaternion
 from envs.magpie import realsense_wrapper as real
+import cv2
+import open3d as o3d
+import matplotlib.pyplot as plt
 
 def step_action(robot, action, blocking=True):
+    # get the robot pose
+    curr_pose = homog_coord_to_pose_vector(robot.getPose())
+    print(curr_pose)
+    print(action)
+    pose_act = []
+    for i in range(0,6):
+        pose_act.append(curr_pose[i] + action[i])
+    homog = pose_vector_to_homog_coord(pose_act)
     #TODO: do something with robot
-    robot.moveJ(pose = action[:7], rotSpeed=0.1, asynch = not blocking)
-    robot.set_gripper(0.02)
+    robot.moveL(homog, linSpeed=0.02, asynch = not blocking)
+    if(action[-1] == 1.0):
+        robot.open_gripper()
+    elif action[-1] < 1.0:
+        robot.set_gripper(0.02)
+
+    # robot.set_gripper(0.02)
 
 def get_observation(robot, cam):
     #TODO: get the observation
+    im = cam.takeImages(path = "", save=False)
     
-    return np.append(robot.get_joint_angles(), robot.get_gripper_sep()), cam.takeImages(path = "", save=False)
+    return np.append(robot.get_joint_angles(), robot.get_gripper_sep()), im
     
 def null_obs(im_size):
     #TODO: implement
     return {
         "image_wrist": np.zeros((im_size, im_size, 3), dtype=np.uint8),
-        "proprio": np.zeros((8,), dtype=np.float64)
+        # "proprio": np.zeros((8,), dtype=np.float64)
     }
 
 def convert_obs(obs_im, obs_pose, im_size):
-    im = (np.asarray(obs_im.color).reshape(3, im_size, im_size).transpose(1,2,0) * 255).astype(np.uint8)
-
+    im = (cv2.resize(np.asarray(obs_im.color), (im_size, im_size))).astype(np.uint8)
+    image_bgr = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+    cv2.imshow('Image', image_bgr)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     #TODO: implement
     return {
         "image_wrist": im, 
-        "proprio": obs_pose
+        # "proprio": obs_pose
     }
 
 def reset(robot, blocking=True):
@@ -58,9 +80,10 @@ class UR5Gym(gym.Env):
                     high=255*np.ones((im_size, im_size, 3)),
                     dtype = np.uint8,
                 ),
-                "proprio": gym.spaces.Box(
-                    low=np.ones((8,))*-1, high = np.ones((8,)), dtype=np.float64
-                ),
+                # "pad_mask_dict/image_primary": gym.spaces.Discrete(2)
+                # "proprio": gym.spaces.Box(
+                #     low=np.ones((8,))*-1, high = np.ones((8,)), dtype=np.float64
+                # ),
             }
         )
         self.action_space = gym.spaces.Box(

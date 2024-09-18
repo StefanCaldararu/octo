@@ -20,7 +20,7 @@ from envs.magpie import realsense_wrapper as real
 from envs.ur5_env import UR5Gym
 
 
-logging.set_verbosity(logging.DEBUG)
+logging.set_verbosity(logging.WARNING)
 
 FLAGS = flags.FLAGS
 
@@ -108,13 +108,13 @@ def main(_):
     while t < FLAGS.num_timesteps:
         if time.time() > last_tstep + STEP_DURATION:
             last_tstep = time.time()
-            print(type(obs["image_wrist"]))
             images.append(obs["image_wrist"][-1])
             goals.append(goal_image)
             
             # get action
             forward_pass_time = time.time()
             action = np.array(policy_fn(obs, task), dtype = np.float64)
+            print("THE ACTION IS: \n\n")
             print(action)
             # perform the step
             obs = env.step(action)
