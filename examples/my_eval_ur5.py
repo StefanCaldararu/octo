@@ -15,8 +15,8 @@ from octo.model.octo_model import OctoModel
 from octo.utils.gym_wrappers import HistoryWrapper, TemporalEnsembleWrapper
 from octo.utils.train_callbacks import supply_rng
 
-from envs.magpie.ur5 import UR5_Interface as ur5
-from envs.magpie import realsense_wrapper as real
+from magpie.ur5 import UR5_Interface as ur5
+from magpie import realsense_wrapper as real
 from envs.ur5_env import UR5Gym
 
 
@@ -61,11 +61,18 @@ def main(_):
     robot = ur5()
     robot.start()
     # robot.moveJ([0.643, -1.7, 1.667, -1.712, -1.47, -1.047], rotSpeed=0.1, asynch=False)
-    rsc = real.RealSense()
-    rsc.initConnection()
-
+    # rsc = real.RealSense()
+    # rsc.initConnection()
+    devices = real.poll_devices()
+    wrist_rs = real.RealSense(fps=5, device_name='D405')
+    wrist_rs.initConnection(device_serial=devices['D405'])
+    devices = real.poll_devices()
+    workspace_rs = real.RealSense(zMax=5, fps=6, device_name='D435')
+    workspace_rs.initConnection(device_serial=devices['D435'])
+    wrist_rs.flush_buffer(2)
+    workspace_rs.flush_buffer(2)
     #wrap the robot environment
-    env = UR5Gym(robot, rsc, FLAGS.im_size)
+    env = UR5Gym(robot, wrist_rs, workspace_rs, FLAGS.im_size)
     env = HistoryWrapper(env, FLAGS.window_size)
     env = TemporalEnsembleWrapper(env, FLAGS.action_horizon)
 
@@ -93,7 +100,7 @@ def main(_):
     )
 
     goal_image = jnp.zeros((FLAGS.im_size, FLAGS.im_size, 3), dtype=np.uint8)
-    goal_instruction = "Pick up the blue block."
+    goal_instruction = "Pick up the green block."
     task = model.create_tasks(texts=[goal_instruction])
     #TODO: actually get observations
     # obs = np.array([])
