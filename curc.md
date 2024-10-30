@@ -31,7 +31,7 @@ pip install --upgrade "jax[cuda11_pip]==0.4.20" -f https://storage.googleapis.co
 exit #disconnect from the compile node
 ```
 
-You should now be ready to run the slurm job and test the octo debug script! This can be done with `sbatch test_octo.sh` once you have grabbed the script from this repo. I have been able to run this on CURC with no errors. There are a few notes in relation to this though:
+You should now be ready to run the slurm job and test the octo debug script! This can be done with `sbatch octo_testjob.sh` once you have grabbed the script from this repo. I have been able to run this on CURC with no errors. There are a few notes in relation to this though:
 
 - Make sure to change line 24 to source `cublas` from your own python environment, as you likely don't have access to mine.
 - If you want to run a job with your own fairshares rather than the `ucb510_asc1`, remove line 3 from the script.
