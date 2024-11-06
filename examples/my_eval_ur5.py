@@ -53,6 +53,45 @@ ENV_PARAMS = {
     "move_duration": STEP_DURATION,
 }
 
+# def get_observation(robot, gripper_cam, workspace_cam):
+#     #TODO: get the observation
+#     gripper_im = gripper_cam.takeImages()
+#     workspace_im = workspace_cam.takeImages()
+    
+#     return np.append(robot.get_joint_angles(), robot.get_gripper_sep()), gripper_im, workspace_im
+
+# def convert_obs(obs_gripper_im, obs_workspace_im, obs_pose, im_size):
+#     gripper_im = (cv2.resize(np.asarray(obs_gripper_im.color), (im_size, im_size))).astype(np.uint8)
+#     workspace_im = (cv2.resize(np.asarray(obs_workspace_im.color), (im_size, im_size))).astype(np.uint8)
+#     image_bgr = cv2.cvtColor(gripper_im, cv2.COLOR_RGB2BGR)
+#     cv2.imshow('Image', image_bgr)
+#     cv2.waitKey(0)
+#     cv2.destroyAllWindows()
+#     #TODO: implement
+#     return {
+#         "image_wrist": gripper_im,
+#         "image_primary": workspace_im 
+#         # "proprio": obs_pose
+#     }
+
+# def step_action(robot, action, blocking=True):
+#     # get the robot pose
+#     curr_pose = homog_coord_to_pose_vector(robot.getPose())
+#     print(curr_pose)
+#     print(action)
+#     pose_act = []
+#     for i in range(0,6):
+#         pose_act.append(curr_pose[i] + action[i])
+#     homog = pose_vector_to_homog_coord(pose_act)
+#     #TODO: do something with robot
+#     robot.moveL(homog, linSpeed=0.02, asynch = not blocking)
+#     if(action[-1] == 1.0):
+#         robot.open_gripper()
+#     elif action[-1] < 1.0:
+#         robot.set_gripper(0.02)
+
+
+
 def main(_):
     # load models
     model = OctoModel.load_pretrained("hf://rail-berkeley/octo-small-1.5")
@@ -107,6 +146,11 @@ def main(_):
     print(goal_instruction)
     time.sleep(2.0)
 
+    # null_observation = {
+    #     "image_wrist": np.zeros((FLAGS.im_size, im_size, 3), dtype=np.uint8),
+    #     "image_primary": np.zeros((im_size, im_size, 3), dtype=np.uint8),
+    # }
+
     last_tstep = time.time()
     images = []
     goals = []
@@ -117,12 +161,19 @@ def main(_):
             last_tstep = time.time()
             images.append(obs["image_wrist"][-1])
             goals.append(goal_image)
-            
+            print("THE OBSERVATION IS: \n\n")
+            print(obs)
             # get action
             forward_pass_time = time.time()
             action = np.array(policy_fn(obs, task), dtype = np.float64)
             print("THE ACTION IS: \n\n")
             print(action)
+            action = np.array([
+                [0.1,0,0,0,0,0,1.0],
+                [0.1,0,0,0,0,0,1.0],
+                [0.1,0,0,0,0,0,1.0],
+                [0.1,0,0,0,0,0,1.0]
+            ])
             # perform the step
             obs = env.step(action)
     robot.stop()

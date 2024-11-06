@@ -41,14 +41,15 @@ def null_obs(im_size):
     #TODO: implement
     return {
         "image_wrist": np.zeros((im_size, im_size, 3), dtype=np.uint8),
-        "image_primary": np.zeros((im_size, im_size, 3), dtype=np.uint8),
+        "image_primary": np.zeros((256, 256, 3), dtype=np.uint8),
         # "proprio": np.zeros((8,), dtype=np.float64)
     }
 
 def convert_obs(obs_gripper_im, obs_workspace_im, obs_pose, im_size):
     gripper_im = (cv2.resize(np.asarray(obs_gripper_im.color), (im_size, im_size))).astype(np.uint8)
-    workspace_im = (cv2.resize(np.asarray(obs_workspace_im.color), (im_size, im_size))).astype(np.uint8)
+    workspace_im = (cv2.resize(np.asarray(obs_workspace_im.color), (256, 256))).astype(np.uint8)
     image_bgr = cv2.cvtColor(gripper_im, cv2.COLOR_RGB2BGR)
+    print("IM SIZE: " + str(im_size))
     cv2.imshow('Image', image_bgr)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -61,7 +62,7 @@ def convert_obs(obs_gripper_im, obs_workspace_im, obs_pose, im_size):
 
 def reset(robot, blocking=True):
     #TODO:
-    robot.moveJ([0.643, -1.7, 1.667, -1.712, -1.47, -1.047], rotSpeed=0.1, asynch=not blocking)
+    # robot.moveJ([0.643, -1.7, 1.667, -1.712, -1.47, -1.047], rotSpeed=0.1, asynch=not blocking)
     robot.open_gripper()
 
 class UR5Gym(gym.Env):
@@ -88,8 +89,8 @@ class UR5Gym(gym.Env):
                     dtype=np.uint8,
                 ),
                 "image_primary": gym.spaces.Box(
-                    low=np.zeros((im_size, im_size, 3)),    
-                    high=255*np.ones((im_size, im_size, 3)),
+                    low=np.zeros((256, 256, 3)),    
+                    high=255*np.ones((256, 256, 3)),
                     dtype=np.uint8,
                 ),
                 # "pad_mask_dict/image_primary": gym.spaces.Discrete(2)
